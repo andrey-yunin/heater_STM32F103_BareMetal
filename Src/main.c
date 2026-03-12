@@ -18,33 +18,120 @@
 
 #include <stdint.h>
 
-#include <stdint.h>
+/* --- БАЗОВЫЕ АДРЕСА ПЕРИФЕРИИ --- */
+#define RCC_BASE      0x40021000UL
+#define GPIOA_BASE    0x40010800UL
+#define GPIOC_BASE    0x40011000UL
+#define USART1_BASE   0x40013800UL
+#define SYSTICK_BASE  0xE000E010UL
+#define NVIC_BASE     0xE000E100UL
+
 
 /* --- АДРЕСА РЕГИСТРОВ (из Reference Manual RM0008) --- */
 
-// 1. Управление тактированием (RCC - Reset and Clock Control)
-// Базовый адрес RCC: 0x4002 1000
-#define RCC_BASE      0x40021000UL
 
 // Регистр включения тактирования периферии APB2 (смещение 0x18)
 #define RCC_APB2ENR   (*(volatile uint32_t *)(RCC_BASE + 0x18))
 
-// 2. Порт ввода-вывода C (GPIOC)
-// Базовый адрес GPIOC: 0x4001 1000
-#define GPIOC_BASE    0x40011000UL
-
-// Регистр конфигурации (High) для пинов 8-15 (смещение 0x04)
+/* --- РЕГИСТРЫ GPIO (Порты ввода-вывода) --- */
+#define GPIOA_CRH     (*(volatile uint32_t *)(GPIOA_BASE + 0x04))
 #define GPIOC_CRH     (*(volatile uint32_t *)(GPIOC_BASE + 0x04))
-
-// Регистр данных на выходе (смещение 0x0C)
 #define GPIOC_ODR     (*(volatile uint32_t *)(GPIOC_BASE + 0x0C))
 
 
+// ISER (Interrupt Set-Enable Register) - Включение прерываний
+// ISER0 управляет прерываниями с 0 по 31
+#define NVIC_ISER0    (*(volatile uint32_t *)(NVIC_BASE + 0x00))
+
+// ISER1 управляет прерываниями с 32 по 63
+// Номер прерывания USART1 = 37. Значит 37 - 32 = 5-й бит в ISER1.
+#define NVIC_ISER1    (*(volatile uint32_t *)(NVIC_BASE + 0x04))
+
+
 /* --- РЕГИСТРЫ SYSTICK (встроены в ядро процессора) --- */
-#define SYSTICK_BASE  0xE000E010UL
 #define STK_CTRL      (*(volatile uint32_t *)(SYSTICK_BASE + 0x00)) // Управление и статус
 #define STK_LOAD      (*(volatile uint32_t *)(SYSTICK_BASE + 0x04)) // Значение для перезагрузки
 #define STK_VAL       (*(volatile uint32_t *)(SYSTICK_BASE + 0x08)) // Текущее значение
+
+
+// USART1
+#define USART1_SR     (*(volatile uint32_t *)(USART1_BASE + 0x00)) // Статус
+#define USART1_DR     (*(volatile uint32_t *)(USART1_BASE + 0x04)) // Данные
+#define USART1_BRR    (*(volatile uint32_t *)(USART1_BASE + 0x08)) // Скорость
+#define USART1_CR1    (*(volatile uint32_t *)(USART1_BASE + 0x0C)) // Управление
+
+// 1. Глобальная переменная для принятых данных
+volatile char rx_data = 0;
+volatile uint8_t data_ready = 0;
+
+char rx_buffer[16]; // Массив для принятой строки
+volatile uint8_t rx_idx = 0; // Индекс (куда класть следующий байт)
+
+
+
+
+// Инициализация UART1
+void UART1_Init(void) {
+	RCC_APB2ENR |= (1 << 2) | (1 << 14);
+	GPIOA_CRH &= ~(0xF << 4);
+	GPIOA_CRH |= (0xB << 4);
+	USART1_BRR = 0x45;
+
+	// Настройка PA10 (RX) - биты [11:8] в CRH.
+	// Ставим режим Input Floating (0x4)
+	// Это ОБЯЗАТЕЛЬНО для приема данных!
+	GPIOA_CRH &= ~(0xF << 8);
+	GPIOA_CRH |= (0x4 << 8);
+
+
+	// Включаем: USART (13), TX (3), RX (2)
+	// И ДОБАВЛЯЕМ: RXNEIE (5) - прерывание при получении байта
+	USART1_CR1 |= (1 << 13) | (1 << 3) | (1 << 2) | (1 << 5);
+
+	// Разрешаем прерывание USART1 в контроллере NVIC
+	// Номер прерывания USART1 = 37.
+	// Так как ISER0 управляет 0-31, нам нужен ISER1 (37 - 32 = 5-й бит)
+	NVIC_ISER1 |= (1 << 5);
+	}
+
+// 2. СТАНДАРТНЫЙ ОБРАБОТЧИК (Имя зарезервировано в стартап-файле)
+void USART1_IRQHandler(void) {
+	// Проверяем, что прерывание вызвано именно приходом данных (бит 5 RXNE)
+	if (USART1_SR & (1 << 5)) {
+		rx_data = (char)USART1_DR;
+		// 3. Ставим флаг готовности
+		data_ready = 1;
+	}
+}
+
+
+
+// Функция отправки одного символа
+void UART1_SendChar(char c) {
+	// Ждем, пока регистр данных станет пустым (бит 7 в SR - TXE)
+	// * TXE = 0: Регистр занят. UART еще перекладывает твой прошлый байт во внутренние цепи для отправки. Писать нельзя!
+	// * TXE = 1: Регистр пуст. Он готов принять новый байт. Можно писать!
+
+	while (!(USART1_SR & (1 << 7)));
+	// Записываем символ в регистр данных
+	USART1_DR = c;
+	}
+
+// Функция отправки целой строки
+void UART1_SendString(char* str) {
+	while (*str) {
+		UART1_SendChar(*str++);
+		}
+	}
+
+// Код для проверки UART "самого себя" (Loopback)
+char UART1_ReceiveChar(void) {
+	while (!(USART1_SR & (1 << 5))); // Ждем прихода байта
+	return (char)USART1_DR;
+	}
+
+
+
 
 // 1. Глобальный счетчик миллисекунд.
 // volatile обязателен: main должен знать, что значение меняется "извне" (в прерывании).
@@ -89,19 +176,43 @@ void SysTick_Init(void) {
 
 
 
+
+
 int main(void)
 {
-	// 1. Настройка PC13 на выход
+	 // 1. ИНИЦИАЛИЗАЦИЯ (делаем один раз!)
+
+	// Настройка порта C (светодиод)
 	RCC_APB2ENR |= (1 << 4);
 	GPIOC_CRH &= ~(0xF << 20);
 	GPIOC_CRH |= (0x2 << 20);
 
-	// 2. Инициализация таймера (теперь один раз!)
+	// Инициализация периферии
+	UART1_Init();
 	SysTick_Init();
 
 	while(1) {
-		GPIOC_ODR ^= (1 << 13);
-		delay_ms(500); // Работает на прерываниях
-		}
+		// 2. ОТПРАВЛЯЕМ одну букву 'A'
+		UART1_SendChar('A');
+
+		// 3. ЖДЕМ полсекунды
+		// За это время буква 'A' успеет вернуться в RX,
+		// сработает прерывание и запишет её в rx_data.
+		delay_ms(500);
+
+		// 4. ПРОВЕРЯЕМ: если прерывание поймало именно 'A' - мигаем
+		if (data_ready && rx_data == 'A') {
+			GPIOC_ODR ^= (1 << 13); // Переключаем светодиод
+			data_ready = 0;         // Сбрасываем флаг для следующего круга
+			}
+	}
 }
+
+
+
+
+
+
+
+
 
