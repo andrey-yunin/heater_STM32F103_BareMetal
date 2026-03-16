@@ -7,6 +7,7 @@
 
 #include "uart.h"
 #include "stm32f103_regs.h"
+#include "fifo_handler.h"
 
 volatile char rx_data = 0;
 volatile uint8_t data_ready = 0;
@@ -52,9 +53,12 @@ void UART1_SendString(char* str) {
 
 // Обработчик прерывания (имя стандартное для стартапа)
 void USART1_IRQHandler(void) {
+	// Проверяем флаг RXNE (регистр данных не пуст)
 	if (USART1_SR & (1 << 5)) {
-		rx_data = (char)USART1_DR;
-		data_ready = 1;
+		 uint8_t received_byte = (uint8_t)USART1_DR;
+		 // Просто кладем байт в "почтовый ящик"
+		 FIFO_Push(received_byte);
+
 		}
 	}
 

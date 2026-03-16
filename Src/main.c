@@ -22,6 +22,9 @@
 #include "sys_time.h"
 #include "uart.h"
 #include "gpio.h"
+#include "fifo_handler.h"
+#include "cmd_handler.h"
+
 
 
 int main(void)
@@ -33,22 +36,16 @@ int main(void)
 	SysTick_Init(); // Затем таймер
 	UART1_Init();    // Затем связь
 	GPIO_Init();     // LED, Relay
+	CmdHandler_Init();
+
+
+
 
 
 	while(1) {
-		// 2. ОТПРАВЛЯЕМ одну букву 'A'
-		UART1_SendChar('A');
-
-		// 3. ЖДЕМ полсекунды
-		// За это время буква 'A' успеет вернуться в RX,
-		// сработает прерывание и запишет её в rx_data.
-		delay_ms(500);
-
-		// 4. ПРОВЕРЯЕМ: если прерывание поймало именно 'A' - мигаем
-		if (data_ready && rx_data == 'A') {
-			GPIOC_ODR ^= (1 << 13); // Переключаем светодиод
-			data_ready = 0;         // Сбрасываем флаг для следующего круга
-			}
+		// Обработка входящих команд
+		CmdHandler_Task();
+		// Здесь позже будут задачи термостата и безопасности
 		}
 }
 
