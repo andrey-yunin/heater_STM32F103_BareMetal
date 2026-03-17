@@ -24,6 +24,7 @@
 #include "gpio.h"
 #include "fifo_handler.h"
 #include "cmd_handler.h"
+#include "frame_sender.h"
 
 
 
@@ -46,6 +47,26 @@ int main(void)
 		// Обработка входящих команд
 		CmdHandler_Task();
 		// Здесь позже будут задачи термостата и безопасности
+
+		// 2. Инициативная отправка HEALTH_DATA раз в 2 секунды
+		static uint32_t last_report = 0;
+		if ((get_uptime_ms() - last_report) > 2000) {
+			uint8_t health[7];
+			health[0] = 0x00; // SensStat: OK
+			health[1] = 0x00; // Relay: OFF
+			health[2] = 36;   // MCU_T: 36 градусов (заглушка)
+			uint32_t uptime = get_uptime_ms() / 1000; // Аптайм в секундах
+
+			// Упаковка u32 в Big-Endian (согласно протоколу)
+			health[3] = (uint8_t)(uptime >> 24);
+			health[4] = (uint8_t)(uptime >> 16);
+			health[5] = (uint8_t)(uptime >> 8);
+			health[6] = (uint8_t)(uptime & 0xFF);
+
+			FrameSender_SendFrame(0x04, health, 7);
+
+			last_report = get_uptime_ms();
+			}
 		}
 }
 
