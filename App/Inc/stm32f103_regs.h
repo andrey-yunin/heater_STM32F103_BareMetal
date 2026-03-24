@@ -24,6 +24,7 @@
 #define NVIC_BASE     0xE000E100UL // Nested Vectored Interrupt Controller (Контроллер прерываний)
 #define ADC1_BASE     0x40012400UL // Аналого-цифровой преобразователь №1
 #define FLASH_BASE    0x40022000UL // Flash Memory Interface
+#define DMA1_BASE     0x40020000UL // DMA
 
 
 
@@ -36,6 +37,8 @@
 #define RCC_CFGR      (*(volatile uint32_t *)(RCC_BASE + 0x04))
 // RCC_APB2ENR: Включение тактирования модулей на шине APB2 (GPIO, USART1, ADC, и др.)
 #define RCC_APB2ENR   (*(volatile uint32_t *)(RCC_BASE + 0x18))
+// RCC_AHBENR: Включение тактирования DMA1 (бит 0)
+#define RCC_AHBENR    (*(volatile uint32_t *)(RCC_BASE + 0x14))
 // Включение тактирования шины APB1
 #define RCC_APB1ENR   (*(volatile uint32_t *)(RCC_BASE + 0x1C))
 
@@ -137,6 +140,24 @@
  */
 // FLASH_ACR: Настройка времени ожидания (Wait States) для работы на высоких частотах.
 #define FLASH_ACR     (*(volatile uint32_t *)(FLASH_BASE + 0x00))
+
+
+/**
+ * @brief РЕГИСТРЫ DMA1 (Direct Memory Access)
+ */
+
+// Регистр статуса прерываний DMA
+#define DMA1_ISR      (*(volatile uint32_t *)(DMA1_BASE + 0x00))
+// Регистр сброса флагов прерываний
+#define DMA1_IFCR     (*(volatile uint32_t *)(DMA1_BASE + 0x04))
+
+// Канал 1 DMA (жестко связан с ADC1)
+#define DMA1_CCR1     (*(volatile uint32_t *)(DMA1_BASE + 0x08))  // Control
+#define DMA1_CNDTR1   (*(volatile uint32_t *)(DMA1_BASE + 0x0C))  // Number of data
+#define DMA1_CPAR1    (*(volatile uint32_t *)(DMA1_BASE + 0x10))  // Peripheral address
+#define DMA1_CMAR1    (*(volatile uint32_t *)(DMA1_BASE + 0x14))  // Memory address
+
+
 
 
 

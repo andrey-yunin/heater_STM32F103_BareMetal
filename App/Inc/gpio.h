@@ -30,5 +30,11 @@ void LED_Off(void);
 void Relay_On(void);
 void Relay_Off(void);
 
+/**
+ * @brief Возвращает текущее состояние реле (0 - Выкл, 1 - Вкл)
+ */
+uint8_t GPIO_Relay_GetState(void);
+
+
 
 #endif /* INC_GPIO_H_ */

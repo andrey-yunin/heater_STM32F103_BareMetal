@@ -24,50 +24,44 @@
 #include "gpio.h"
 #include "fifo_handler.h"
 #include "cmd_handler.h"
-#include "frame_sender.h"
+#include "telemetry_manager.h"
+#include "adc.h"
 
+/**
+ * @brief Единая точка инициализации всех подсистем (Orchestrator)
+ */
+
+void System_Init(void) {
+
+	// 1. ИНИЦИАЛИЗАЦИЯ СЛОЕВ (Layer 0: Drivers))
+	//Инициализация системы тактирования на 72 МГц (HSE + PLL)
+
+	RCC_Init(); // Сначала тактирование 72МГц
+	SysTick_Init(); // Затем таймер
+	UART1_Init();   // Затем связь
+	GPIO_Init();    // LED, Relay
+	ADC_Init();     // ADC1 + DMA1 (Temp monitoring)
+
+	CmdHandler_Init(); // Parser
+	Telemetry_Init();   // Start Heartbeat
+}
 
 
 int main(void)
 {
-	// 1. ИНИЦИАЛИЗАЦИЯ СЛОЕВ (Layer 0: Drivers))
 
-	//Инициализация системы тактирования на 72 МГц (HSE + PLL)
-	RCC_Init(); // Сначала тактирование 72МГц
-	SysTick_Init(); // Затем таймер
-	UART1_Init();    // Затем связь
-	GPIO_Init();     // LED, Relay
-	CmdHandler_Init();
-
-
-
-
+	System_Init();
 
 	while(1) {
-		// Обработка входящих команд
-		CmdHandler_Task();
-		// Здесь позже будут задачи термостата и безопасности
+		// Уровень 3: Диспетчеризация неблокирующих задач
 
-		// 2. Инициативная отправка HEALTH_DATA раз в 2 секунды
-		static uint32_t last_report = 0;
-		if ((get_uptime_ms() - last_report) > 2000) {
-			uint8_t health[7];
-			health[0] = 0x00; // SensStat: OK
-			health[1] = 0x00; // Relay: OFF
-			health[2] = 36;   // MCU_T: 36 градусов (заглушка)
-			uint32_t uptime = get_uptime_ms() / 1000; // Аптайм в секундах
+		CmdHandler_Task();   // Обработка входящих команд (RX)
+		Telemetry_Task();    // Периодические и событийные отчеты (TX)
 
-			// Упаковка u32 в Big-Endian (согласно протоколу)
-			health[3] = (uint8_t)(uptime >> 24);
-			health[4] = (uint8_t)(uptime >> 16);
-			health[5] = (uint8_t)(uptime >> 8);
-			health[6] = (uint8_t)(uptime & 0xFF);
-
-			FrameSender_SendFrame(0x04, health, 7);
-
-			last_report = get_uptime_ms();
-			}
-		}
+		// Здесь позже появятся:
+		// Thermostat_Task();
+		// Safety_Task();
+	}
 }
 
 

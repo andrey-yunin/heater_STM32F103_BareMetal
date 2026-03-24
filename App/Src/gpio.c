@@ -43,5 +43,13 @@ void Relay_Off(void) {
 	GPIOA_ODR &= ~(1 << 0);
 	}
 
+uint8_t GPIO_Relay_GetState(void) {
+	// Проверяем 0-й бит регистра ODR порта A (PA0 - Relay Pin)
+	if (GPIOA_ODR & (1 << 0)) {
+		return 1;
+		}
+	return 0;
+}
+
 
 
