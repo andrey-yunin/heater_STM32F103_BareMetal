@@ -26,6 +26,12 @@ static uint32_t last_byte_time = 0;
 PackerStatus_t FramePacker_Task(Frame_t *frame) {
 	uint8_t byte;
 
+	// ГАРАНТИЯ ЧИСТОТЫ: Если мы в ожидании старта — структура должна быть обнулена
+	if (current_state == STATE_WAIT_START) {
+		frame->cmd = 0;
+		frame->len = 0;
+	}
+
 	// 1. Проверка тайм-аута сборки (защита от "зависших" полупакетов)
 	if (current_state != STATE_WAIT_START) {
 		if ((get_uptime_ms() - last_byte_time) > PACKET_TIMEOUT_MS) {
@@ -91,6 +97,3 @@ PackerStatus_t FramePacker_Task(Frame_t *frame) {
     	}
 	return (current_state == STATE_WAIT_START) ? PACKER_IDLE : PACKER_COLLECTING;
 }
-
-
-

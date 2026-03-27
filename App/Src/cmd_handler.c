@@ -9,7 +9,9 @@
 #include "frame_packer.h"
 #include "uart.h"
 #include "frame_sender.h"
+#include "telemetry_manager.h"
 #include <string.h>
+
 
 // Локальный буфер для текущего фрейма
 static Frame_t current_frame;
@@ -34,10 +36,10 @@ static void ProcessCommand(Frame_t *frame) {
 			if (frame->len == 2) {
 				// Склеиваем байты (Big-Endian согласно UART_PROTOCOL.md)
 				int16_t temp_raw = (frame->data[0] << 8) | frame->data[1];
-				(void)temp_raw; // Заглушка, чтобы не было warning: unused variable
-				// Логика перевода: 225 = 22.5 градусов
-				// TODO: Thermostat_SetTarget(temp_raw)
-				//UART1_SendString("ACK: SET_TEMP\r\n");
+
+				// ПЕРЕДАЕМ уставку в Центральный Мозг (Telemetry Manager)
+				Telemetry_SetTargetTemp(temp_raw);
+
 				FrameSender_SendACK(frame->cmd);
 				}
 			 else {
@@ -57,6 +59,9 @@ void CmdHandler_Task(void) {
 	PackerStatus_t status = FramePacker_Task(&current_frame);
 	if (status == PACKER_READY) {
 		ProcessCommand(&current_frame);
+
+		// ЗАЩИТА ОТ ПОВТОРОВ: Сбрасываем команду после обработки
+		current_frame.cmd = 0x00;
 		}
 	else if (status == PACKER_ERROR) {
 		// Здесь можно добавить счетчик ошибок или лог

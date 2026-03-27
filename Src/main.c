@@ -26,6 +26,9 @@
 #include "cmd_handler.h"
 #include "telemetry_manager.h"
 #include "adc.h"
+#include "ds18b20.h"
+#include "thermostat.h"
+
 
 /**
  * @brief Единая точка инициализации всех подсистем (Orchestrator)
@@ -38,12 +41,16 @@ void System_Init(void) {
 
 	RCC_Init(); // Сначала тактирование 72МГц
 	SysTick_Init(); // Затем таймер
+	DWT_Init();     // ПРЕЦИЗИОННЫЙ СЧЕТЧИК
 	UART1_Init();   // Затем связь
 	GPIO_Init();    // LED, Relay
 	ADC_Init();     // ADC1 + DMA1 (Temp monitoring)
+	DS18B20_Init();     // <--- Exted sensor inicialization
 
 	CmdHandler_Init(); // Parser
 	Telemetry_Init();   // Start Heartbeat
+	Thermostat_Init();
+
 }
 
 
@@ -56,10 +63,11 @@ int main(void)
 		// Уровень 3: Диспетчеризация неблокирующих задач
 
 		CmdHandler_Task();   // Обработка входящих команд (RX)
-		Telemetry_Task();    // Периодические и событийные отчеты (TX)
+		Telemetry_Task();    // Мозг: замер и принятие решения (раз в 30 сек)
+		Thermostat_Task();	 // Мышцы: безопасное исполнение решения
 
 		// Здесь позже появятся:
-		// Thermostat_Task();
+
 		// Safety_Task();
 	}
 }

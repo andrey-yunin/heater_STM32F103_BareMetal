@@ -37,4 +37,15 @@ uint8_t GPIO_Relay_GetState(void);
 
 
 
+/**
+ * @brief Управление состоянием реле (Нагревателя)
+ * @param state 1 - Включить (Замкнуть контакты), 0 - Выключить
+ */
+void GPIO_Relay_SetState(uint8_t state);
+
+
+
+
+
+
 #endif /* INC_GPIO_H_ */

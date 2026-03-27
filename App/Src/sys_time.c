@@ -52,3 +52,40 @@ void delay_ms(uint32_t ms) {
 uint32_t get_uptime_ms(void) {
 	return ms_ticks;
 	}
+
+
+void DWT_Init(void) {
+	// 1. Разрешаем использование блока DWT (бит TRCENA в регистре DEMCR)
+    DEMCR |= (1 << 24);
+
+    // 2. Обнуляем счетчик циклов
+    DWT_CYCCNT = 0;
+
+    // 3. Включаем счетчик (бит CYCCNTENA в регистре DWT_CTRL)
+    DWT_CTRL |= (1 << 0);
+}
+
+void delay_us(uint32_t us) {
+	// 1. Запоминаем начальное значение тактов
+    uint32_t start_ticks = DWT_CYCCNT;
+
+     // 2. Вычисляем нужное количество тактов для задержки.
+     // На 72 МГц: 1 мкс = 72 такта.
+     uint32_t required_ticks = us * (72000000 / 1000000);
+
+     // 3. Ждем в пустом цикле, пока разница не достигнет нужного значения.
+     // Разность (now - start) корректно обрабатывает переполнение 32-битного счетчика.
+     while ((DWT_CYCCNT - start_ticks) < required_ticks);
+}
+
+
+
+
+
+
+
+
+
+
+
+

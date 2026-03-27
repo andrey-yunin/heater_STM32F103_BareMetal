@@ -158,6 +158,15 @@
 #define DMA1_CMAR1    (*(volatile uint32_t *)(DMA1_BASE + 0x14))  // Memory address
 
 
+// DEMCR: Debug Exception and Monitor Control Register (Разрешение трассировки)
+#define DEMCR         (*(volatile uint32_t *)0xE000EDFC)
+// DWT_CTRL: Управление счетчиком (включение/выключение)
+#define DWT_CTRL      (*(volatile uint32_t *)0xE0001000)
+// DWT_CYCCNT: Сам 32-битный счетчик тактов (увеличивается на 1 каждый такт процессора)
+#define DWT_CYCCNT    (*(volatile uint32_t *)0xE0001004)
+
+
+
 
 
 

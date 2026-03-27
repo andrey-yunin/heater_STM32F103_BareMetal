@@ -43,6 +43,17 @@ void Relay_Off(void) {
 	GPIOA_ODR &= ~(1 << 0);
 	}
 
+
+void GPIO_Relay_SetState(uint8_t state) {
+	if (state) {
+		GPIOA_ODR |= (1 << 0);   // PA0 = 1 (Прямая логика: 1 - реле замкнуто)
+		}
+	else {
+		GPIOA_ODR &= ~(1 << 0);  // PA0 = 0
+		}
+	}
+
+
 uint8_t GPIO_Relay_GetState(void) {
 	// Проверяем 0-й бит регистра ODR порта A (PA0 - Relay Pin)
 	if (GPIOA_ODR & (1 << 0)) {
